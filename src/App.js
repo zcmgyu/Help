@@ -42,7 +42,7 @@ const App = () => {
     try {
       setLoading(false);
       const data = await fetch(
-        "https://pixabay.com/api/?key=18269871-9984b5717c4bef14378a76910&q=" +
+        "https://pixabay.com/api/?key=X&q=" +
           image +
           "&image_type=photo&pretty=true"
       );
