@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { SRLWrapper } from "simple-react-lightbox";
 import SimpleReactLightbox from "simple-react-lightbox";
+import { debounce } from "lodash";
 
 const App = () => {
+  const isMountedRef = useRef(false);
   const options = {
     settings: {
       disablePanzoom: true,
@@ -23,43 +25,54 @@ const App = () => {
     },
   };
 
-  const [search, setSearch] = useState({
-    query: "",
-  });
+  const [query, setQuery] = useState('');
 
   const [list, setList] = useState([]);
 
   const [loading, setLoading] = useState(false);
-  const typer = (e) => {
-    setSearch({
-      ...search,
-      [e.target.name]: e.target.value,
-    });
-    GetImages(e.target.value);
+
+  const debouncedSearch = useCallback(debounce((q) => {
+    setQuery(q);
+  }, 500), []);
+
+  const handleSearch = (e) => {
+    debouncedSearch(e.target.value)
   };
 
-  const GetImages = async (image) => {
-    try {
-      setLoading(false);
-      const data = await fetch(
-        "https://pixabay.com/api/?key=X&q=" +
-          image +
-          "&image_type=photo&pretty=true"
-      );
-      const json = await data.json();
-      setList(json);
-      setLoading(true);
-    } catch (err) {
-      console.log(err);
-    }
-  };
 
   useEffect(() => {
-    const results = list.filter((img) => {
-      return img.toLowerCase().includes(search.query.toLowerCase());
-    });
-    setList(results);
-  }, []);
+    isMountedRef.current = true;
+
+    const getImages = async (q) => {
+      try {
+        if (isMountedRef.current) {
+          setLoading(true);
+        }
+
+        const data = await fetch(
+          "https://pixabay.com/api/?key=18291078-e6aec1ebf091385151e7ff5e7&q=" +
+          q +
+          "&image_type=photo&pretty=true"
+        );
+        const json = await data.json();
+        if (isMountedRef.current) {
+          setList(json);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.log(err);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      }
+    }
+
+    getImages(query);
+
+    return () => {
+      isMountedRef.current = false;
+    }
+  }, [query]);
 
   return (
     <>
@@ -70,41 +83,32 @@ const App = () => {
             <Input
               id="query"
               name="query"
-              value={search.query}
-              onChange={typer}
+              onChange={handleSearch}
             />
           </Col>
         </Row>
-
+        {loading && <div className="spinner"></div>}
         <Row>
-          {search.query ? (
-            list.totalHits > 0 ? (
-              loading ? (
-                list.hits.map((item, i) => (
-                  <SimpleReactLightbox key={i}>
-                    <ImageCol>
-                      <SRLWrapper options={options}>
-                        <a href={item.largeImageURL} data-attribute="SRL">
-                          <img src={item.webformatURL} alt="" />
-                        </a>
-                      </SRLWrapper>
-                    </ImageCol>
-                  </SimpleReactLightbox>
-                ))
-              ) : (
-                "No data..."
-              )
-            ) : (
-              <div className="spinner"></div>
-            )
-          ) : (
-            ""
-          )}
+          {
+            query && !loading && list.hits.length > 0 ? list.hits.map((item) => (
+              <SimpleReactLightbox key={item.id}>
+                <ImageCol>
+                  {/* <SRLWrapper options={options}> */}
+                  <a href={item.largeImageURL} data-attribute="SRL">
+                    <img src={item.webformatURL} alt="" />
+                  </a>
+                  {/* </SRLWrapper> */}
+                </ImageCol>
+              </SimpleReactLightbox>
+            )) : <p>No data...</p>
+          }
         </Row>
       </Container>
     </>
   );
 };
+
+
 
 export default App;
 
